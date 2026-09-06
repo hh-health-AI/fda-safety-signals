@@ -55,3 +55,25 @@ Review them before use.
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+## Safety calculation safeguards
+
+The Yates correction is bounded at zero. Negative/invalid contingency-table counts
+are rejected. Named comparator queries exclude every target-drug report, making
+the report cohorts mutually exclusive. This does not deduplicate FAERS cases or
+establish causality; report-level counts remain a screening proxy.
+
+Only a structured NOT_FOUND / No matches found! response becomes a zero count.
+Other endpoint failures remain errors. Empty target/comparator populations stop the
+calculation. Error messages from the generic client omit API-key-bearing URLs.
+
+## Regression tests
+
+Run offline with Python 3.10 or newer (standard library only):
+
+```bash
+python3 -m unittest discover -s tests -v
+```
+
+Tests use synthetic fixtures and mocked APIs; they do not certify live endpoint
+availability or current regulatory facts. GitHub Actions runs the same tests on PRs.

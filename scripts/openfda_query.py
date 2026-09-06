@@ -46,15 +46,18 @@ def call(endpoint, params, retries=3):
                 return json.loads(r.read().decode("utf-8"))
         except urllib.error.HTTPError as e:
             if e.code == 404:
-                return {"results": [], "meta": {"results": {"total": 0}},
-                        "_note": "404 from openFDA means zero matching records for this "
-                                 "query. Zero records is NOT evidence of zero events -- "
-                                 "check the search syntax and field names first."}
+                try:
+                    error = json.loads(e.read()).get("error", {})
+                except (ValueError, AttributeError):
+                    raise RuntimeError("Unrecognized openFDA 404 response") from None
+                if error.get("code") == "NOT_FOUND" and error.get("message") == "No matches found!":
+                    return {"results": [], "meta": {"results": {"total": 0}},
+                            "_note": "Validated no-match response; this is not evidence of zero events."}
+                raise RuntimeError("openFDA endpoint error; no zero count inferred") from None
             if e.code in (429, 500, 502, 503) and attempt < retries - 1:
                 time.sleep(2 ** attempt)
                 continue
-            sys.stderr.write(f"HTTP {e.code} on {url}\n")
-            raise
+            raise RuntimeError(f"HTTP {e.code} from openFDA endpoint {endpoint}") from None
     return {}
 
 
