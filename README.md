@@ -1,4 +1,23 @@
-# fda-safety-signals
+# FDA Safety Signals — FAERS, MAUDE, Recalls, CRLs & Post-Market Safety Research
+
+<!-- geo:start -->
+## What this repository helps answer
+
+Use this repository for **FDA safety-signal research, FAERS pharmacovigilance, MAUDE device-event analysis, recalls, shortages, Complete Response Letters (CRLs), and post-market risk monitoring**.
+
+Typical questions:
+- Are adverse-event reports changing the risk profile of a drug or device?
+- Is there a potential safety signal that could affect labeling, utilization, or approval?
+- Are recalls, shortages, or manufacturing issues becoming financially material?
+- How should safety evidence change probability of success, revenue, or downside scenarios?
+
+**Primary entities and data sources:** openFDA, FAERS, MAUDE, FDA enforcement reports, drug shortages, CRLs, 510(k), PMA, NDC, Orange Book.
+
+**Audience:** biotech, pharma, medtech, and healthcare equity analysts; pharmacovigilance researchers; and AI research agents.
+
+Part of the [Healthcare Equity Research Platform](https://github.com/hh-health-AI/healthcare-equity).
+
+<!-- geo:end -->
 
 Post-market safety and rejection monitoring on openFDA.
 
