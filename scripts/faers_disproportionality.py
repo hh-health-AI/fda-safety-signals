@@ -35,10 +35,16 @@ def total(search):
             req = urllib.request.Request(url, headers={**user_agent("faers-disproportionality")})
             with urllib.request.urlopen(req, timeout=90) as r:
                 d = json.loads(r.read().decode("utf-8"))
-            return int(d.get("meta", {}).get("results", {}).get("total", 0))
+            return int(d["meta"]["results"]["total"])
         except urllib.error.HTTPError as e:
             if e.code == 404:
-                return 0
+                try:
+                    error = json.loads(e.read()).get("error", {})
+                except (ValueError, AttributeError):
+                    raise RuntimeError("Unrecognized openFDA 404 response") from None
+                if error.get("code") == "NOT_FOUND" and error.get("message") == "No matches found!":
+                    return 0
+                raise RuntimeError("openFDA endpoint error; no zero count inferred") from None
             if e.code in (429, 500, 502, 503) and attempt < 2:
                 time.sleep(2 ** attempt); continue
             raise
@@ -46,22 +52,30 @@ def total(search):
 
 
 def drug_clause(names):
+    if any('"' in n or '\\' in n or not n.strip() for n in names):
+        raise ValueError("Drug names must be nonempty and contain no query escapes")
     inner = " OR ".join(f'patient.drug.openfda.generic_name:"{n}"' for n in names)
     return f"({inner})"
 
 
 def event_clause(events):
+    if any('"' in e or '\\' in e or not e.strip() for e in events):
+        raise ValueError("Event names must be nonempty and contain no query escapes")
     inner = " OR ".join(f'patient.reaction.reactionmeddrapt:"{e}"' for e in events)
     return f"({inner})"
 
 
 def date_clause(d_from, d_to):
+    if datetime.date.fromisoformat(d_from) > datetime.date.fromisoformat(d_to):
+        raise ValueError("--from must not be after --to")
     f = d_from.replace("-", "")
     t = d_to.replace("-", "")
-    return f"receivedate:[{f}+TO+{t}]"
+    return f"receivedate:[{f} TO {t}]"
 
 
 def stats(a, b, c, d):
+    if any(not isinstance(v, int) or isinstance(v, bool) or v < 0 for v in (a, b, c, d)):
+        raise ValueError("2x2 counts must be nonnegative integers")
     out = {"a": a, "b": b, "c": c, "d": d}
     if min(a, b, c, d) <= 0:
         out["note"] = ("A zero cell makes the frequentist estimates unstable or "
@@ -73,7 +87,7 @@ def stats(a, b, c, d):
     se = math.sqrt(1 / a + 1 / b + 1 / c + 1 / d)
     lo, hi = math.exp(math.log(ror) - 1.96 * se), math.exp(math.log(ror) + 1.96 * se)
     n = a + b + c + d
-    chi2 = (n * (abs(a * d - b * c) - n / 2) ** 2) / ((a + b) * (c + d) * (a + c) * (b + d))
+    chi2 = (n * max(0, abs(a * d - b * c) - n / 2) ** 2) / ((a + b) * (c + d) * (a + c) * (b + d))
     out.update({
         "PRR": round(prr, 3),
         "ROR": round(ror, 3),
@@ -108,13 +122,17 @@ def main():
 
     a_ct = total(f"{drug} AND {ev} AND {dc}")
     drug_all = total(f"{drug} AND {dc}")
+    if drug_all == 0:
+        ap.exit(2, "No target-drug reports; verify name/window before interpreting a safety signal.\n")
     b_ct = drug_all - a_ct
 
     if a.comparator_drugs:
-        comp = drug_clause(a.comparator_drugs)
+        if a.drug.casefold() in {n.casefold() for n in a.comparator_drugs}:
+            ap.error("target drug cannot also be a comparator")
+        comp = f"{drug_clause(a.comparator_drugs)} AND NOT {drug}"
         c_ct = total(f"{comp} AND {ev} AND {dc}")
         comp_all = total(f"{comp} AND {dc}")
-        comparator_desc = "named comparator drugs: " + ", ".join(a.comparator_drugs)
+        comparator_desc = "named comparator drugs (target-drug reports excluded): " + ", ".join(a.comparator_drugs)
     else:
         all_ev = total(f"{ev} AND {dc}")
         all_rep = total(dc)
@@ -124,6 +142,8 @@ def main():
                            "same-class or same-indication comparator for any "
                            "investment conclusion.")
     d_ct = comp_all - c_ct
+    if comp_all == 0:
+        ap.exit(2, "No comparator reports; disproportionality cannot be evaluated.\n")
 
     res = {
         "drug": a.drug,
