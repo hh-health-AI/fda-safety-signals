@@ -1,5 +1,7 @@
 # FDA Safety Signals — FAERS, MAUDE, Recalls, CRLs & Post-Market Safety Research
 
+> **Responsible AI:** Research and education only; verify evidence, protect patient data and retain human oversight. [Policy and project-specific checks](RESPONSIBLE_AI.md).
+
 <!-- geo:start -->
 ## What this repository helps answer
 
